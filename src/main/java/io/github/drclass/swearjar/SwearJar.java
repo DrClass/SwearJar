@@ -149,13 +149,14 @@ public class SwearJar {
 								return event.reply(user.getMention() + " currently has $" + jar.getFormattedCurrentPayout() + " in the swear jar!");
 							} catch (NullPointerException e) {
 								// lol really stupid fix
+								event.deferReply();
 								String output = "";
 								Collections.sort(swearJars);
 								for (Jar jar : swearJars) {
 									output += client.getUserById(Snowflake.of(jar.getUserId())).block().asMember(event.getInteraction().getGuildId().get())
 											.block().getDisplayName() + " | $" + jar.getFormattedCurrentPayout() + "\n";
 								}
-								return event.reply(output);
+								return event.editReply(output);
 							}
 						} else {
 							if (event.getInteraction().getUser().getId().equals(AyaSnowflake)
