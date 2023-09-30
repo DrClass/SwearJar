@@ -188,6 +188,10 @@ public class SwearJar {
 					}
 				} else if (event.getCommandName().equals("jar-admin")) {
 					ApplicationCommandInteraction interaction = event.getInteraction().getCommandInteraction().orElseGet(null);
+					if (!(event.getInteraction().getUser().getId().equals(AyaSnowflake)
+							|| event.getInteraction().getUser().getId().equals(RavenSnowflake))) {
+						return event.reply("Error: You do not have permission to do this. This command should not be visible to you. Please report this.");
+					}
 					if (interaction.getOption("execute").isPresent()) {
 						if (event.getInteraction().getUser().getId().equals(RavenSnowflake)) {
 							String code = interaction.getOption("execute").get().getOption("code").flatMap(ApplicationCommandInteractionOption::getValue)
