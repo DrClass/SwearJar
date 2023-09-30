@@ -149,7 +149,7 @@ public class SwearJar {
 								return event.reply(user.getMention() + " currently has $" + jar.getFormattedCurrentPayout() + " in the swear jar!");
 							} catch (NullPointerException e) {
 								// lol really stupid fix
-								event.deferReply();
+								event.deferReply().block();
 								String output = "";
 								Collections.sort(swearJars);
 								for (Jar jar : swearJars) {
