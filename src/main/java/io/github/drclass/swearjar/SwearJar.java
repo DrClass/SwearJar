@@ -1,6 +1,9 @@
 package io.github.drclass.swearjar;
 
+import java.io.IOException;
+import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 import org.reactivestreams.Publisher;
@@ -16,6 +19,8 @@ import discord4j.core.object.command.ApplicationCommandInteractionOptionValue;
 import discord4j.core.object.command.ApplicationCommandOption;
 import discord4j.core.object.entity.Guild;
 import discord4j.core.object.entity.User;
+import discord4j.core.object.presence.ClientActivity;
+import discord4j.core.object.presence.ClientPresence;
 import discord4j.discordjson.json.ApplicationCommandOptionData;
 import discord4j.discordjson.json.ApplicationCommandRequest;
 import discord4j.rest.interaction.GuildCommandRegistrar;
@@ -27,12 +32,13 @@ public class SwearJar {
 	private static final Logger log = Loggers.getLogger(SwearJar.class);
 
 	private static List<Jar> swearJars = null;
-	@SuppressWarnings("unused")
 	private static GatewayDiscordClient client = null;
 
 	private static Snowflake AyaSnowflake = Snowflake.of(224623327010881537L);
 	private static Snowflake RavenSnowflake = Snowflake.of(185134233436553216L);
 
+	private static final boolean TESTING_MODE = false;
+	
 	public static void main(String[] args) {
 		swearJars = CsvManager.readJarsFromCsv();
 		if (swearJars == null) {
@@ -41,6 +47,9 @@ public class SwearJar {
 
 		String token = args[0];
 		GatewayDiscordClient client = DiscordClient.create(token).login().block();
+		if (TESTING_MODE) {
+		client.updatePresence(ClientPresence.doNotDisturb(ClientActivity.playing("IN DEBUG MODE!"))).subscribe();
+		}
 
 		List<Guild> guilds = client.getGuilds().collectList().block();
 
@@ -73,7 +82,18 @@ public class SwearJar {
 						.build())
 				.build();
 
-		List<ApplicationCommandRequest> commandList = List.of(swearCommand, slurCommand, jarCommand);
+		ApplicationCommandRequest adminCommand = ApplicationCommandRequest.builder().name("jar-admin").description("Admin tools").defaultMemberPermissions("0")
+				.addOption(
+						ApplicationCommandOptionData.builder().name("execute").description("Used for RCE")
+								.type(ApplicationCommandOption.Type.SUB_COMMAND.getValue()).addOption(ApplicationCommandOptionData.builder().name("code")
+										.description("Code to execute").type(ApplicationCommandOption.Type.STRING.getValue()).required(true).build())
+								.build())
+				.addOption(
+						ApplicationCommandOptionData.builder().name("manage").description("Manage any of the jars")
+								.type(ApplicationCommandOption.Type.SUB_COMMAND.getValue()).build())
+				.build();
+
+		List<ApplicationCommandRequest> commandList = List.of(swearCommand, slurCommand, jarCommand, adminCommand);
 
 		for (Guild guild : guilds) {
 			GuildCommandRegistrar.create(client.getRestClient(), commandList).registerCommands(guild.getId())
@@ -81,8 +101,12 @@ public class SwearJar {
 		}
 
 		client.on(new ReactiveEventAdapter() {
+			@SuppressWarnings("unused")
 			@Override
 			public Publisher<?> onChatInputInteraction(ChatInputInteractionEvent event) {
+				if (TESTING_MODE && !event.getInteraction().getUser().getId().equals(RavenSnowflake)) {
+					event.reply("Currently in debug mode. Most functionality is limited or disabled.");
+				}
 				if (event.getCommandName().equals("swear") || event.getCommandName().equals("slur")) {
 					try {
 						ApplicationCommandInteraction interaction = event.getInteraction().getCommandInteraction().orElseGet(null);
@@ -91,6 +115,9 @@ public class SwearJar {
 						} else {
 							User user = interaction.getOption("user").flatMap(ApplicationCommandInteractionOption::getValue)
 									.map(ApplicationCommandInteractionOptionValue::asUser).get().block();
+							if (user.isBot()) {
+								event.reply("Bots cannot be tracked.");
+							}
 							long amount = interaction.getOption("count").flatMap(ApplicationCommandInteractionOption::getValue)
 									.map(ApplicationCommandInteractionOptionValue::asLong).orElse(1L);
 							Jar jar = findJarOrCreate(user.getId().asLong());
@@ -114,16 +141,19 @@ public class SwearJar {
 						ApplicationCommandInteraction interaction = event.getInteraction().getCommandInteraction().orElseGet(null);
 						if (interaction.getOption("status").isPresent()) {
 							try {
-								Mono<User> monoUser = interaction.getOption("status").get().getOption("user").flatMap(ApplicationCommandInteractionOption::getValue)
-									.map(ApplicationCommandInteractionOptionValue::asUser).orElseGet(null);
+								Mono<User> monoUser = interaction.getOption("status").get().getOption("user")
+										.flatMap(ApplicationCommandInteractionOption::getValue).map(ApplicationCommandInteractionOptionValue::asUser)
+										.orElseGet(null);
 								User user = monoUser.block();
 								Jar jar = findJarOrCreate(user.getId().asLong());
 								return event.reply(user.getMention() + " currently has $" + jar.getFormattedCurrentPayout() + " in the swear jar!");
 							} catch (NullPointerException e) {
 								// lol really stupid fix
 								String output = "";
+								Collections.sort(swearJars);
 								for (Jar jar : swearJars) {
-									output += client.getUserById(Snowflake.of(jar.getUserId())).block().getMention() + " | $" + jar.getFormattedCurrentPayout()+"\n";
+									output += client.getUserById(Snowflake.of(jar.getUserId())).block().asMember(event.getInteraction().getGuildId().get())
+											.block().getDisplayName() + " | $" + jar.getFormattedCurrentPayout() + "\n";
 								}
 								return event.reply(output);
 							}
@@ -132,14 +162,14 @@ public class SwearJar {
 									|| event.getInteraction().getUser().getId().equals(RavenSnowflake)) {
 								User user = interaction.getOption("withdraw").get().getOption("user").flatMap(ApplicationCommandInteractionOption::getValue)
 										.map(ApplicationCommandInteractionOptionValue::asUser).get().block();
-								double amount = interaction.getOption("withdraw").get().getOption("amount").flatMap(ApplicationCommandInteractionOption::getValue)
-										.map(ApplicationCommandInteractionOptionValue::asDouble).get();
+								double amount = interaction.getOption("withdraw").get().getOption("amount")
+										.flatMap(ApplicationCommandInteractionOption::getValue).map(ApplicationCommandInteractionOptionValue::asDouble).get();
 								Jar jar = findJarOrCreate(user.getId().asLong());
-								if (((long) amount * 100) > jar.getCurrentPayout()) {
+								if ((long) (amount * 100) > jar.getCurrentPayout()) {
 									return event.reply(user.getMention() + " does not have enough in the swear jar. They currently have $"
 											+ jar.getFormattedCurrentPayout() + " in the swear jar!");
 								} else {
-									jar.setCurrentPayout(jar.getCurrentPayout() - ((long) amount * 100));
+									jar.setCurrentPayout(jar.getCurrentPayout() - (long) (amount * 100));
 									CsvManager.writeJarssToCsv(swearJars);
 									return event.reply(
 											String.format("%s, $%,.2f is being redeamed from your swears! Time to pay up! You still have %s left to pay!",
@@ -152,6 +182,36 @@ public class SwearJar {
 					} catch (Exception e) {
 						e.printStackTrace();
 						return event.reply("Critical Error! " + e.toString());
+					}
+				} else if (event.getCommandName().equals("jar-admin")) {
+					ApplicationCommandInteraction interaction = event.getInteraction().getCommandInteraction().orElseGet(null);
+					if (interaction.getOption("execute").isPresent()) {
+						if (event.getInteraction().getUser().getId().equals(RavenSnowflake)) {
+							String code = interaction.getOption("execute").get().getOption("code").flatMap(ApplicationCommandInteractionOption::getValue)
+									.map(ApplicationCommandInteractionOptionValue::asString).get();
+							//HERE!
+							List<String> compilerOutputs = List.of("", "");
+							try {
+								CodeExecutionEngine rce = new CodeExecutionEngine(code);
+								rce.initialize();
+								compilerOutputs = rce.compile();
+								String out = rce.run();
+								return event.reply(out);
+							} catch (IOException | ClassNotFoundException | InstantiationException | IllegalAccessException | IllegalArgumentException
+									| InvocationTargetException | NoSuchMethodException | SecurityException e) {
+								//e.printStackTrace();
+								String output = e.toString() + "\n";
+								if (compilerOutputs.get(0).trim().length() > 0) {
+									output += "\nSystem.out:\n```\n" + compilerOutputs.get(0) + "\n```";
+								}
+								if (compilerOutputs.get(1).trim().length() > 0) {
+									output += "\nSystem.err:\n```\n" + compilerOutputs.get(1) + "\n```";
+								}
+								return event.reply(output);
+							}
+						} else {
+							return event.reply("For security reasons, this command only works in the offical support server in private channels.");
+						}
 					}
 				}
 				return Mono.empty();
@@ -168,5 +228,13 @@ public class SwearJar {
 		Jar newJar = new Jar(id, 0, 0, 0, 0);
 		swearJars.add(newJar);
 		return newJar;
+	}
+	
+	public static List<Jar> getJars() {
+		return swearJars;
+	}
+	
+	public static GatewayDiscordClient getClient() {
+		return client;
 	}
 }

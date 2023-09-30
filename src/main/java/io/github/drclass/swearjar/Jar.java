@@ -1,6 +1,6 @@
 package io.github.drclass.swearjar;
 
-public class Jar {
+public class Jar implements Comparable<Jar> {
 	private long userId;
     private long totalSwears;
     private long totalSlurs;
@@ -72,5 +72,10 @@ public class Jar {
 
 	public void setCurrentPayout(long currentPayout) {
 		this.currentPayout = currentPayout;
+	}
+
+	@Override
+	public int compareTo(Jar o) {
+		return (int) (currentPayout - o.currentPayout);
 	}
 }
