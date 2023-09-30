@@ -76,6 +76,6 @@ public class Jar implements Comparable<Jar> {
 
 	@Override
 	public int compareTo(Jar o) {
-		return (int) (currentPayout - o.currentPayout);
+		return (int) (o.currentPayout - currentPayout);
 	}
 }

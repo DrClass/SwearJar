@@ -13,6 +13,7 @@ import discord4j.core.DiscordClient;
 import discord4j.core.GatewayDiscordClient;
 import discord4j.core.event.ReactiveEventAdapter;
 import discord4j.core.event.domain.interaction.ChatInputInteractionEvent;
+import discord4j.core.object.PermissionOverwrite;
 import discord4j.core.object.command.ApplicationCommandInteraction;
 import discord4j.core.object.command.ApplicationCommandInteractionOption;
 import discord4j.core.object.command.ApplicationCommandInteractionOptionValue;
@@ -24,6 +25,7 @@ import discord4j.core.object.presence.ClientPresence;
 import discord4j.discordjson.json.ApplicationCommandOptionData;
 import discord4j.discordjson.json.ApplicationCommandRequest;
 import discord4j.rest.interaction.GuildCommandRegistrar;
+import discord4j.rest.util.Permission;
 import reactor.core.publisher.Mono;
 import reactor.util.Logger;
 import reactor.util.Loggers;
@@ -81,8 +83,8 @@ public class SwearJar {
 								.type(ApplicationCommandOption.Type.NUMBER.getValue()).required(true).build())
 						.build())
 				.build();
-
-		ApplicationCommandRequest adminCommand = ApplicationCommandRequest.builder().name("jar-admin").description("Admin tools").defaultMemberPermissions("0")
+		
+		ApplicationCommandRequest adminCommand = ApplicationCommandRequest.builder().name("jar-admin").description("Admin tools")
 				.addOption(
 						ApplicationCommandOptionData.builder().name("execute").description("Used for RCE")
 								.type(ApplicationCommandOption.Type.SUB_COMMAND.getValue()).addOption(ApplicationCommandOptionData.builder().name("code")
