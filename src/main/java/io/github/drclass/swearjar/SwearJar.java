@@ -204,7 +204,7 @@ public class SwearJar {
 								rce.initialize();
 								compilerOutputs = rce.compile();
 								String out = rce.run();
-								return event.reply(out);
+								return event.editReply(out);
 							} catch (IOException | ClassNotFoundException | InstantiationException | IllegalAccessException | IllegalArgumentException
 									| InvocationTargetException | NoSuchMethodException | SecurityException e) {
 								//e.printStackTrace();
@@ -215,7 +215,7 @@ public class SwearJar {
 								if (compilerOutputs.get(1).trim().length() > 0) {
 									output += "\nSystem.err:\n```\n" + compilerOutputs.get(1) + "\n```";
 								}
-								return event.reply(output);
+								return event.editReply(output);
 							}
 						} else {
 							return event.reply("For security reasons, this command only works in the offical support server in private channels.");
