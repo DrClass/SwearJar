@@ -197,6 +197,7 @@ public class SwearJar {
 							String code = interaction.getOption("execute").get().getOption("code").flatMap(ApplicationCommandInteractionOption::getValue)
 									.map(ApplicationCommandInteractionOptionValue::asString).get();
 							//HERE!
+							event.deferReply().block();
 							List<String> compilerOutputs = List.of("", "");
 							try {
 								CodeExecutionEngine rce = new CodeExecutionEngine(code);
