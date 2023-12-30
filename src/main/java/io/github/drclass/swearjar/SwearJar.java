@@ -155,8 +155,11 @@ public class SwearJar {
 								String output = "";
 								Collections.sort(swearJars);
 								for (Jar jar : swearJars) {
-									output += client.getUserById(Snowflake.of(jar.getUserId())).block().asMember(event.getInteraction().getGuildId().get())
-											.block().getDisplayName() + " | $" + jar.getFormattedCurrentPayout() + "\n";
+									try {
+										output += client.getUserById(Snowflake.of(jar.getUserId())).block().asMember(event.getInteraction().getGuildId().get())
+												.block().getDisplayName() + " | $" + jar.getFormattedCurrentPayout() + "\n";
+									} catch (Exception e1) {
+									}
 								}
 								return event.editReply(output);
 							}
